@@ -1,0 +1,2 @@
+* * * * * /usr/local/bin/php /var/www/html/me/weapi/artisan schedule:run
+* * * * * /usr/local/bin/php /var/www/html/huijinsuo/web_yx/artisan schedule:run

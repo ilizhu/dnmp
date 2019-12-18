@@ -1,0 +1,98 @@
+version: '3.7'
+services:
+  nginx:
+    build:
+      context: ./app/nginx
+      args:
+        NGINX_VERSION: ${NGINX_VERSION}
+    container_name: '${NGINX_CONTAINER_NAME}'
+    ports:
+      - '80:80'
+    depends_on:
+      - php74
+    links:
+      - php74
+    volumes:
+      - '~/opt/htdocs/:/var/www/html/:rw'
+      - './config/nginx/conf.d/:/etc/nginx/conf.d/:ro'
+      - './config/nginx/cert/:/etc/nginx/cert/:ro'
+      - './config/nginx/nginx.conf/:/etc/nginx/nginx.conf:ro'
+    networks:
+      dnmp:
+        ipv4_address: ${NGINX_IP}
+  php74:
+    build:
+      context: ./app/php
+      args:
+        PHP_VERSION: 7.4
+        PHP_EXT_REDIS: ${PHP_EXT_REDIS}
+        PHP_EXT_MYSQL: ${PHP_EXT_MYSQL}
+        PHP_EXT_ZIP: ${PHP_EXT_ZIP}
+        PHP_EXT_GD: ${PHP_EXT_GD}
+        PHP_EXT_ICONV: ${PHP_EXT_ICONV}
+    container_name: '${PHP_CONTAINER_NAME}74'
+    ports:
+      - '9000:9000'
+    links:
+      - redis
+      - mysql
+    volumes:
+      - './www/:/var/www/html/:rw'
+      - './config/php/php.ini:/usr/local/etc/php/php.ini:ro'
+      - './config/php/php-fpm.conf:/usr/local/etc/php-fpm.conf:ro'
+    depends_on:
+      - dnsmasq
+    networks:
+      dnmp:
+        ipv4_address: ${PHP72_IP}
+  redis:
+    build:
+      context: ./app/redis
+      args:
+        REDIS_VERSION: ${REDIS_VERSION}
+    container_name: '${REDIS_CONTAINER_NAME}'
+    ports:
+      - '${REDIS_HOST_PORT}:6379'
+    volumes:
+      - ${REDIS_CONF_FILE}:/etc/redis.conf:ro
+    networks:
+      dnmp:
+        ipv4_address: ${REDIS_IP}
+  mysql:
+    image: mysql:${MYSQL_VERSION}
+    container_name: '${MYSQL_CONTAINER_NAME}'
+    ports:
+      - "${MYSQL_HOST_PORT}:3306"
+    volumes:
+      - ${MYSQL_CONF_FILE}:/etc/mysql/conf.d/mysql.cnf:ro
+      - ${MYSQL_DATA_DIR}:/var/lib/mysql/:rw
+      - ${MYSQL_LOG_DIR}:/var/lib/mysql/log/:rw
+    restart: always
+    networks:
+      dnmp:
+        ipv4_address: ${MYSQL_IP}
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+  dnsmasq:
+    build: ./app/dnsmasq
+    container_name: 'dnmp_dns'
+    cap_add:
+      - NET_ADMIN
+    restart: always
+    volumes:
+      - ./config/dnsmasq/dnsmasq.hosts:/etc/dnsmasq.hosts:ro
+      - ./log/dnsmasq/dnsmasq.log:/var/log/dnsmasq.log:rw
+    ports:
+      - "53:53/tcp"
+      - "5380:5380"
+      - "53:53/udp"
+    networks:
+      dnmp:
+        ipv4_address: ${DNSMASQ_IP}
+networks:
+  dnmp:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: ${DOCKER_SUBNET}
